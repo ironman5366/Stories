@@ -12,4 +12,7 @@ class Spotify extends ServiceInterface {
   String name = "Spotify";
   Icon icon = Icon(FontAwesomeIcons.spotify, color: Color(0XFF1DB954));
 
+  bool doOauth(){
+
+  }
 }

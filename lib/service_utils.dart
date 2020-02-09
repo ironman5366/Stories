@@ -1,8 +1,7 @@
 // Builtin/Flutter imports
 import 'dart:convert';
-
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:convert/convert.dart';
 
 // External imports
@@ -22,6 +21,7 @@ class ServiceInterface{
   String name;
   Icon icon;
   SharedPreferences _prefs;
+  Map _keys;
 
   Map shapeData(){
     /**
@@ -30,6 +30,9 @@ class ServiceInterface{
     throw UnimplementedError();
   }
 
+  loadKey(String key){
+    return this._keys[key];
+  }
 
   List<Map<DateTime, ServiceWidget>> parseSeries(Map<num, Map> rawData){
     /**
@@ -46,8 +49,11 @@ class ServiceInterface{
     return (this._prefs.get(this._cacheName) != null);
   }
 
-  // TODO: from and to JSON serializers
+  bool doOauth(){
+    throw UnimplementedError();
+  }
 
+  // TODO: from and to JSON serializers
 
 
   Map get _loadCache{
@@ -71,12 +77,20 @@ class ServiceInterface{
     }
   }
 
+  void _loadCredentials() async{
+    rootBundle.loadStructuredData("assets/crednetials.json",
+      (jsonStr) async {
+          Map credentials = jsonDecode(jsonStr);
+          this._keys = credentials;
+    });
+  }
+
   void _initializeCache() async{
     this._prefs = await SharedPreferences.getInstance();
-
   }
 
   ServiceInterface(){
     this._initializeCache();
+    this._loadCredentials();
   }
 }
