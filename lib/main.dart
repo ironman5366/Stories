@@ -59,7 +59,7 @@ class _HomeState extends State<Home> {
           if (successful){
             // TODO: also change the widget state here
             // Start downloading the data for this widget
-            serviceCallbacks[key].startDownloadingData();
+            serviceCallbacks[key].startDataDownload();
           }
           else{
             print("Service error");
