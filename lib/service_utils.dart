@@ -22,13 +22,13 @@ launchURL(String url) async {
   }
 }
 
+class ServicePoint{
+  int minDuration;
+  int maxDuration;
 
-
-class ServiceData{
-  final DateTime loadedAt;
-  final List<Map<DateTime, ServiceWidget>> series;
-
-  ServiceData({@required this.loadedAt, @required this.series});
+  serialize(){
+    throw UnimplementedError();
+  }
 }
 
 class ServiceInterface{
@@ -36,6 +36,8 @@ class ServiceInterface{
   Icon icon;
   SharedPreferences _prefs;
   Map _keys;
+  DateTime loadedAt;
+  bool loaded;
 
   Map shapeData(){
     /**
@@ -59,6 +61,10 @@ class ServiceInterface{
     return this._keys[key];
   }
 
+  List<DateTime> get timeSeries{
+    throw UnimplementedError();
+  }
+
   List<Map<DateTime, ServiceWidget>> parseSeries(Map<num, Map> rawData){
     /**
      * The function that loads cached data back into a usable format
@@ -67,10 +73,40 @@ class ServiceInterface{
   }
 
   bool acknowledgeOauthKey(String initialLink){
-    throw UnimplementedError;
+    throw UnimplementedError();
+  }
+
+  getPoint(DateTime time){
+    /**
+     * A method that should return an event associated with a specific time,
+     * or null. There is no specification of what type the returned event is,
+     * but it should contain a serialize() method that returns JSON serializable
+     * data
+     */
+    throw UnimplementedError();
+  }
+
+  setPoint(DateTime time, data){
+    /**
+     * A method that should set the internal event within a service to a value,
+     * where data is JSON serializable
+     */
+  }
+
+  void doCache() async{
+    Map cacheData = {"loadedAt": this.loadedAt.millisecondsSinceEpoch,
+    "data": {}};
+    for (DateTime time in this.timeSeries){
+      cacheData["data"][time.millisecondsSinceEpoch] = getPoint(time).serialize();
+    }
+    print("Caching ${cacheData.length} datapoints under key ${this._cacheName}");
+    _writeCache(cacheData);
   }
 
   void startDataDownload() async{
+    /**
+     * Download the data. Cache should likely be called when this is done
+     */
     throw UnimplementedError();
   }
 
@@ -88,20 +124,31 @@ class ServiceInterface{
 
   // TODO: from and to JSON serializers
 
+  void _writeCache(data){
+    /**
+     * data must be JSON serializable
+     */
+    String jsonData = jsonEncode(data);
+    this._prefs.setString(this._cacheName, jsonData);
+  }
 
-  Map get _loadCache{
+
+  void _loadCache(){
     // This function assumes that in protected usage _isCached has been
     // checked each time
     String rawCache = this._prefs.getString(this._cacheName);
     // Decode the cache
     Map cacheData = jsonDecode(rawCache);
     // Check the cache time
-    num cachedAtStamp = cacheData["timestamp"];
+    num cachedAtStamp = cacheData["loadedAt"];
     DateTime cachedAt = DateTime.fromMillisecondsSinceEpoch(
-        (cachedAtStamp*1000)
+        (cachedAtStamp)
     );
     // Process the raw data
-
+    for (num timestamp in cacheData["data"].keys){
+      setPoint(cachedAt,
+              cacheData[timestamp]);
+    }
   }
 
   Future data({bool cacheOverride: false}){
@@ -113,9 +160,15 @@ class ServiceInterface{
 
   void _initializeCache() async{
     this._prefs = await SharedPreferences.getInstance();
+    // Check to see if the data is already cached
+    if (this._prefs.containsKey(this._cacheName)){
+      this._loadCache();
+      this.loaded = true;
+    }
   }
 
   ServiceInterface(){
+    this.loaded = false;
     this._initializeCache();
   }
 }

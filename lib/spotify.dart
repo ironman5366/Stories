@@ -11,7 +11,10 @@ import 'package:stories/service_utils.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart';
 
-class SpotifyTrack{
+class SpotifyTrack extends ServicePoint{
+  int minDuration = 5;
+  int maxDuration = 30;
+
   DateTime added;
   String previewUrl;
   String externalUrl;
@@ -19,10 +22,11 @@ class SpotifyTrack{
   String artist;
   String name;
   String albumCoverUrl;
+  int popularity;
 
   SpotifyTrack(this.added, this.previewUrl, this.externalUrl,
                 this.album, this.artist, this.name,
-                this.albumCoverUrl);
+                this.albumCoverUrl, this.popularity);
 
   Map serialize(){
     /**
@@ -35,7 +39,8 @@ class SpotifyTrack{
       "album": this.album,
       "artist": this.artist,
       "name": this.name,
-      "albumCoverUrl": this.albumCoverUrl
+      "albumCoverUrl": this.albumCoverUrl,
+      "popularity": this.popularity
     };
   }
 }
@@ -50,6 +55,16 @@ class Spotify extends ServiceInterface {
     "playlist-read-private"
   ];
   String _accessKey;
+  Map<DateTime, SpotifyTrack> _tracks;
+
+  List<DateTime> get timeSeries{
+    if (this._tracks != null){
+      return this._tracks.keys;
+    }
+    else{
+      return [];
+    }
+  }
 
   void doOauth() async{
     Map spotifyCreds = await this.loadKey("spotify");
@@ -67,12 +82,34 @@ class Spotify extends ServiceInterface {
     launchURL(endpoint.toString());
   }
 
-  List<SpotifyTrack> parseTracks(List responseData){
+  getPoint(DateTime time){
+    // Use this structure instead of checking for key contain so that we don't
+    // have to call contains every time, when it will be true most of the time
+    try{
+      return this._tracks[time];
+    }
+    catch (e){
+      return null;
+    }
+  }
+
+  setPoint(DateTime time, data){
+    this._tracks[time] = SpotifyTrack(
+        DateTime.fromMillisecondsSinceEpoch(data["added"]),
+        data["previewUrl"],
+        data["externalUrl"],
+        data["album"], data["artist"],
+        data["name"],
+        data["albumCoverUrl"],
+        data["popularity"]);
+  }
+
+  Map<DateTime, SpotifyTrack> parseTracks(List responseData){
     /**
      * Parse a list of spotify API responses into an internal usable
      * track structure
      */
-    List<SpotifyTrack> trackAccumulator = [];
+    Map<DateTime, SpotifyTrack> trackAccumulator = {};
     for (Map trackCollection in responseData){
       for (Map track in trackCollection["items"]){
         String rawAdded = track["added_at"];
@@ -84,10 +121,9 @@ class Spotify extends ServiceInterface {
         String artist = track["artists"][0]["name"];
         String album = track["album"]["name"];
         String albumCoverUrl = track["album"]["images"][0]["url"];
-        trackAccumulator.add(
-          SpotifyTrack(added, previewUrl, externalUrl,
-                      album, artist, name, albumCoverUrl)
-        );
+        int popularity = track["popularity"];
+        trackAccumulator[added] = SpotifyTrack(added, previewUrl, externalUrl,
+                      album, artist, name, albumCoverUrl, popularity);
       }
     }
     return trackAccumulator;
@@ -108,7 +144,7 @@ class Spotify extends ServiceInterface {
         var responseData = jsonDecode(rep.body);
         dataList.add(responseData);
         reqNum++;
-        //next = responseData["next"];
+        next = responseData["next"];
         next = null;
       }
       else{
@@ -117,8 +153,8 @@ class Spotify extends ServiceInterface {
         next = null;
       }
     }
-    List<SpotifyTrack> tracks = parseTracks(dataList);
-
+    Map<DateTime, SpotifyTrack> tracks = parseTracks(dataList);
+    this._tracks = tracks;
   }
 
   bool acknowledgeOauthKey(String initialLink){
