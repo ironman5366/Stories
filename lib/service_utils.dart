@@ -4,11 +4,25 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:convert/convert.dart';
 
+
 // External imports
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ServiceWidget{
 }
+
+launchURL(String url) async {
+  try{
+    launch(url);
+  }
+  catch (e){
+    print("Error launching url ${url}");
+    print(e);
+  }
+}
+
+
 
 class ServiceData{
   final DateTime loadedAt;
@@ -30,7 +44,18 @@ class ServiceInterface{
     throw UnimplementedError();
   }
 
-  loadKey(String key){
+  Future _loadCredentials() async{
+    await rootBundle.loadStructuredData("assets/credentials.json",
+            (jsonStr) async{
+          Map credentials = jsonDecode(jsonStr);
+          this._keys = credentials;
+        });
+  }
+
+  Future loadKey(String key) async{
+    if (this._keys == null){
+      await this._loadCredentials();
+    }
     return this._keys[key];
   }
 
@@ -38,6 +63,14 @@ class ServiceInterface{
     /**
      * The function that loads cached data back into a usable format
      */
+    throw UnimplementedError();
+  }
+
+  bool acknowledgeOauthKey(String initialLink){
+    throw UnimplementedError;
+  }
+
+  void startDataDownload() async{
     throw UnimplementedError();
   }
 
@@ -49,7 +82,7 @@ class ServiceInterface{
     return (this._prefs.get(this._cacheName) != null);
   }
 
-  bool doOauth(){
+  void doOauth(){
     throw UnimplementedError();
   }
 
@@ -77,13 +110,6 @@ class ServiceInterface{
     }
   }
 
-  void _loadCredentials() async{
-    rootBundle.loadStructuredData("assets/crednetials.json",
-      (jsonStr) async {
-          Map credentials = jsonDecode(jsonStr);
-          this._keys = credentials;
-    });
-  }
 
   void _initializeCache() async{
     this._prefs = await SharedPreferences.getInstance();
@@ -91,6 +117,5 @@ class ServiceInterface{
 
   ServiceInterface(){
     this._initializeCache();
-    this._loadCredentials();
   }
 }
