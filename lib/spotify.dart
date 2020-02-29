@@ -104,7 +104,7 @@ class Spotify extends ServiceInterface {
         data["popularity"]);
   }
 
-  Map<DateTime, SpotifyTrack> parseTracks(List responseData){
+  Map<DateTime, SpotifyTrack> _parseTracks(List responseData){
     /**
      * Parse a list of spotify API responses into an internal usable
      * track structure
@@ -129,7 +129,7 @@ class Spotify extends ServiceInterface {
     return trackAccumulator;
   }
 
-  void startDataDownload() async{
+  Future<void> doDataDownload() async{
     // Do this as a plain URL instead of the slightly easier URI
     // so the spotify next objects can be treated the same
     String next = "https://api.spotify.com/v1/me/tracks/?offset=0&limit=50";
@@ -153,7 +153,7 @@ class Spotify extends ServiceInterface {
         next = null;
       }
     }
-    Map<DateTime, SpotifyTrack> tracks = parseTracks(dataList);
+    Map<DateTime, SpotifyTrack> tracks = _parseTracks(dataList);
     this._tracks = tracks;
   }
 

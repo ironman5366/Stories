@@ -38,6 +38,7 @@ class ServiceInterface{
   Map _keys;
   DateTime loadedAt;
   bool loaded;
+  bool downloading = false;
 
   Map shapeData(){
     /**
@@ -103,11 +104,27 @@ class ServiceInterface{
     _writeCache(cacheData);
   }
 
+  Future<void> doDataDownload() async{
+    throw UnimplementedError();
+  }
+
   void startDataDownload() async{
     /**
      * Download the data. Cache should likely be called when this is done
      */
-    throw UnimplementedError();
+    // Set downloading = true to prevent multiple downloads
+    if (!this.downloading){
+      this.downloading = true;
+      print("Starting ${this.name} download");
+      DateTime startTime = DateTime.now();
+      await this.doDataDownload();
+      DateTime endTime = DateTime.now();
+      this.downloading = false;
+      // Use inMilliseconds instead of inSeconds because we're interested in fractional seconds
+      double secondsTaken = (endTime.difference(startTime).inMilliseconds / 1000);
+      print("Finished ${this.name} download, took $secondsTaken seconds");
+      // TODO: call cache here
+    }
   }
 
   String get _cacheName{

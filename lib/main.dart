@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:stories/googlephotos.dart';
 import 'dart:async';
 
 
@@ -73,8 +74,10 @@ class _HomeState extends State<Home> {
   @override
   Widget build(BuildContext context) {
     Spotify spotify = Spotify();
+    GooglePhotos googlePhotos = GooglePhotos();
     Map authCallbacks = {
-      "stories-oauth://spotify-callback": spotify
+      "stories-oauth://spotify-callback": spotify,
+      "stories-oauth://googlephotos-callback": googlePhotos
     };
     initUniLinks(authCallbacks);
     return Scaffold(
@@ -88,8 +91,11 @@ class _HomeState extends State<Home> {
             Text(
               'Placeholder',
             ),
-            RaisedButton(child: Text("Press me"), onPressed: ( ){
+            RaisedButton(child: Text("Spotify sign in"), onPressed: ( ){
               spotify.doOauth();
+            }),
+            RaisedButton(child: Text("Google photos sign in"), onPressed: (){
+              googlePhotos.doOauth();
             })
         ]
       ),
