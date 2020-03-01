@@ -53,6 +53,7 @@ class GooglePhotos extends ServiceInterface{
         fit: BoxFit.scaleDown,
         alignment: Alignment.center,
       );
+  String description = "Photos from your google photos library";
   GoogleSignInAccount _currentUser;
 
   Map<DateTime, PhotoRecord> _photos;
@@ -97,7 +98,7 @@ class GooglePhotos extends ServiceInterface{
     String next = initialEndpoint;
     List dataList = [];
     int reqNum = 0;
-    this.loadStatus = "0 photos processed";
+    this.loadStatus.add("0 photos processed");
     while (next != null){
       // Request the next page of items
       Response rep = await get(next, headers: headers);
@@ -112,25 +113,32 @@ class GooglePhotos extends ServiceInterface{
           next = null;
         }
         dataList += responseData["mediaItems"];
-        this.loadStatus = "${dataList.length} photos processed";
+        this.loadStatus.add("${dataList.length} photos processed");
       }
       else{
         print(rep.body);
-        this.loadStatus = "Error";
+        this.loadStatus.add("Error");
         next = null;
       }
     }
     Map<DateTime, PhotoRecord> photos = _parseRecords(dataList);
     print("Parsed ${photos.keys.length} photos in $reqNum requests");
+    this.loadStatus.add("Done");
     this._photos = photos;
   }
 
   void doOauth() async{
-    _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
+    if (_currentUser == null){
+      this.loadStatus.add("Waiting for login...");
+      _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
         print("Got sign in");
         _currentUser = account;
         this.startDataDownload();
-    });
-    _handleSignIn();
+      });
+      _handleSignIn();
+    }
+    else{
+      this.startDataDownload();
+    }
   }
 }

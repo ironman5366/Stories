@@ -46,6 +46,7 @@ class _HomeState extends State<Home> {
 
   StreamSubscription _sub;
   List<ServiceInterface> selected = [];
+  Map<String, String> loadStatus = {};
 
   Future<Null> initUniLinks(Map serviceCallbacks) async {
     // ... check initialLink
@@ -75,22 +76,86 @@ class _HomeState extends State<Home> {
   }
 
   List<Widget> get selectedServices{
-    return [];
+    List<Widget> tiles = [];
+    for (ServiceInterface service in selected){
+      String status = "Loading...";
+      if (this.loadStatus.keys.contains(service.name)) {
+        status = this.loadStatus[service.name];
+      }
+      tiles.add(ListTile(
+        leading: service.icon,
+        title: Text(service.name, style: TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(status)
+      ));
+    }
+    return tiles;
   }
 
   List<Widget> getServiceTiles(List<ServiceInterface> services){
     List<Widget> tiles = [];
+    Size size = MediaQuery.of(context).size;
+    double tileWidth = size.width * 0.3;
+    double tileHeight = size.height * 0.2;
     for (ServiceInterface service in services){
-      if (!selected.contains(service)){
+        // The decoration for the tile, will be a checkmark if selected
+        BoxDecoration tileDec;
+        Function onPressed;
+        // .contains won't work for this, so use this test
+        bool contained = selected.any((s) => s.name == service.name);
+        if (contained) {
+          tileDec = BoxDecoration(
+            color: theme.splashColor,
+            borderRadius: const BorderRadius.all(
+                Radius.circular(8.0)
+            ),
+            border: Border.all(color: theme.splashColor)
+          );
+          onPressed = (){
+            setState(() {
+              // .remove doesn't work here either, so we iterate
+              for (int i=0; i<selected.length; i++){
+                if (selected[i].name == service.name){
+                  selected.removeAt(i);
+                  break;
+                }
+              }
+              });
+            };
+        }
+        else{
+          tileDec = BoxDecoration(
+            borderRadius: const BorderRadius.all(
+                Radius.circular(8.0)
+            ),
+          );
+          onPressed = (){
+            service.loadStatus.stream.listen((String d){
+              setState(() {
+                this.loadStatus[service.name] = d;
+              });
+            });
+            service.doOauth();
+            setState((){
+              selected.add(service);
+            });
+          };
+          }
           tiles.add(GestureDetector(
-          child: Card(
-            child: ListTile(
-              leading: service.icon,
-              title: Text(service.name, style: TextStyle(fontWeight: FontWeight.bold))
-            )
-          )
+            child: Card(child: Container(
+                width: tileWidth,
+                height: tileHeight,
+                decoration: tileDec,
+                  child: ListTile(
+                    leading: Container(
+                        child: service.icon,
+                        width: size.width * 0.1,
+                        height: size.width * 0.1
+                    ),
+                title: Text(service.name, style: TextStyle(fontWeight: FontWeight.bold))
+            ))
+          ),
+            onTap: onPressed
         ));
-      }
     }
     return tiles;
   }

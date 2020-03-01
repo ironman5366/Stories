@@ -1,5 +1,6 @@
 // Builtin/Flutter imports
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:convert/convert.dart';
@@ -34,12 +35,13 @@ class ServicePoint{
 class ServiceInterface{
   String name;
   Widget icon;
+  String description;
   SharedPreferences _prefs;
   Map _keys;
   DateTime loadedAt;
   bool loaded;
   bool downloading = false;
-  String loadStatus = "Loading...";
+  StreamController<String> loadStatus;
 
   Map shapeData(){
     /**
@@ -125,6 +127,10 @@ class ServiceInterface{
       double secondsTaken = (endTime.difference(startTime).inMilliseconds / 1000);
       print("Finished ${this.name} download, took $secondsTaken seconds");
       // TODO: call cache here
+      this.loaded = true;
+      this.loadStatus.add("Done");
+      // Close the load status subscription
+      this.loadStatus.close();
     }
   }
 
@@ -187,6 +193,7 @@ class ServiceInterface{
 
   ServiceInterface(){
     this.loaded = false;
+    loadStatus = new StreamController.broadcast();
     this._initializeCache();
   }
 }

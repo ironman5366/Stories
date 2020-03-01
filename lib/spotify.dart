@@ -48,6 +48,7 @@ class SpotifyTrack extends ServicePoint{
 class Spotify extends ServiceInterface {
   String name = "Spotify";
   Widget icon = Icon(FontAwesomeIcons.spotify, color: Color(0XFF1DB954));
+  String description = "Songs from your spotify library";
   String _redirect_uri = "stories-oauth://spotify-callback";
   // The required scopes to read a users library and playlists
   List<String> _scopes = [
@@ -67,19 +68,25 @@ class Spotify extends ServiceInterface {
   }
 
   void doOauth() async{
-    Map spotifyCreds = await this.loadKey("spotify");
-    String clientId = spotifyCreds["client_id"];
-    Uri endpoint = Uri(scheme: "https",
-                      host: "accounts.spotify.com",
-                      path: "authorize",
-                      queryParameters: {
-                        "client_id": clientId,
-                        "response_type": "token",
-                        "redirect_uri": this._redirect_uri,
-                        "scope": this._scopes.join(" ")
-                      });
-    print("Launching ${endpoint.toString()}");
-    launchURL(endpoint.toString());
+    if (this._accessKey == null){
+      this.loadStatus.add("Waiting for login...");
+      Map spotifyCreds = await this.loadKey("spotify");
+      String clientId = spotifyCreds["client_id"];
+      Uri endpoint = Uri(scheme: "https",
+          host: "accounts.spotify.com",
+          path: "authorize",
+          queryParameters: {
+            "client_id": clientId,
+            "response_type": "token",
+            "redirect_uri": this._redirect_uri,
+            "scope": this._scopes.join(" ")
+          });
+      print("Launching ${endpoint.toString()}");
+      launchURL(endpoint.toString());
+    }
+    else{
+      this.startDataDownload();
+    }
   }
 
   getPoint(DateTime time){
@@ -114,14 +121,14 @@ class Spotify extends ServiceInterface {
       for (Map track in trackCollection["items"]){
         String rawAdded = track["added_at"];
         DateTime added = DateTime.parse(rawAdded);
-        print(added);
-        String previewUrl = track["preview_url"];
-        String externalUrl = track["external_urls"]["spotify"];
-        String name = track["name"];
-        String artist = track["artists"][0]["name"];
-        String album = track["album"]["name"];
-        String albumCoverUrl = track["album"]["images"][0]["url"];
-        int popularity = track["popularity"];
+        Map trackData = track["track"];
+        String previewUrl = trackData["preview_url"];
+        String externalUrl = trackData["external_urls"]["spotify"];
+        String name = trackData["name"];
+        String artist = trackData["artists"][0]["name"];
+        String album = trackData["album"]["name"];
+        String albumCoverUrl = trackData["album"]["images"][0]["url"];
+        int popularity = trackData["popularity"];
         trackAccumulator[added] = SpotifyTrack(added, previewUrl, externalUrl,
                       album, artist, name, albumCoverUrl, popularity);
       }
@@ -134,25 +141,24 @@ class Spotify extends ServiceInterface {
     // so the spotify next objects can be treated the same
     String next = "https://api.spotify.com/v1/me/tracks/?offset=0&limit=50";
     List dataList = [];
-    int reqNum = 1;
-    this.loadStatus = "0 songs processed";
+    int reqNum = 0;
+    this.loadStatus.add("0 songs processed");
     while (next != null){
-      print("Request $reqNum, up to song ${reqNum*50}");
       Response rep = await get(next, headers: {
         "Authorization": "Bearer ${this._accessKey}"
       });
       if (rep.statusCode == 200){
         var responseData = jsonDecode(rep.body);
         dataList.add(responseData);
-        this.loadStatus = "${dataList.length * 50} songs processed";
+        this.loadStatus.add("${(reqNum * 50)+
+            responseData["items"].length} songs processed");
         reqNum++;
         next = responseData["next"];
-        next = null;
       }
       else{
         print("Response error:");
         print(rep);
-        this.loadStatus = "Error";
+        this.loadStatus.add("Error");
         next = null;
       }
     }
