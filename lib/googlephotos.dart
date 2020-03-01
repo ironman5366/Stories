@@ -172,7 +172,7 @@ class GooglePhotos extends ServiceInterface{
   }
 
   void doOauth() async{
-    if (_currentUser == null){
+    if (!this.loaded && _currentUser == null){
       this.loadStatus.add("Waiting for login...");
       _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
         print("Got sign in");
