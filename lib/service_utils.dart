@@ -33,12 +33,13 @@ class ServicePoint{
 
 class ServiceInterface{
   String name;
-  Icon icon;
+  Widget icon;
   SharedPreferences _prefs;
   Map _keys;
   DateTime loadedAt;
   bool loaded;
   bool downloading = false;
+  String loadStatus = "Loading...";
 
   Map shapeData(){
     /**

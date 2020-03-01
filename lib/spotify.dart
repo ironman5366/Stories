@@ -47,7 +47,7 @@ class SpotifyTrack extends ServicePoint{
 
 class Spotify extends ServiceInterface {
   String name = "Spotify";
-  Icon icon = Icon(FontAwesomeIcons.spotify, color: Color(0XFF1DB954));
+  Widget icon = Icon(FontAwesomeIcons.spotify, color: Color(0XFF1DB954));
   String _redirect_uri = "stories-oauth://spotify-callback";
   // The required scopes to read a users library and playlists
   List<String> _scopes = [
@@ -135,6 +135,7 @@ class Spotify extends ServiceInterface {
     String next = "https://api.spotify.com/v1/me/tracks/?offset=0&limit=50";
     List dataList = [];
     int reqNum = 1;
+    this.loadStatus = "0 songs processed";
     while (next != null){
       print("Request $reqNum, up to song ${reqNum*50}");
       Response rep = await get(next, headers: {
@@ -143,6 +144,7 @@ class Spotify extends ServiceInterface {
       if (rep.statusCode == 200){
         var responseData = jsonDecode(rep.body);
         dataList.add(responseData);
+        this.loadStatus = "${dataList.length * 50} songs processed";
         reqNum++;
         next = responseData["next"];
         next = null;
@@ -150,6 +152,7 @@ class Spotify extends ServiceInterface {
       else{
         print("Response error:");
         print(rep);
+        this.loadStatus = "Error";
         next = null;
       }
     }

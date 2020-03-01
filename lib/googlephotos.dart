@@ -44,7 +44,15 @@ class PhotoRecord extends ServicePoint{
 
 class GooglePhotos extends ServiceInterface{
   String name="Google Photos";
-  Icon icon = Icon(FontAwesomeIcons.google);
+  // Credit to https://stackoverflow.com/a/49168837 for this solution for maintaining color in an image icon
+  Widget icon = new Image(
+        image: new AssetImage("assets/google-photos-logo.png"),
+        width: 24,
+        height: 24,
+        color: null,
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+      );
   GoogleSignInAccount _currentUser;
 
   Map<DateTime, PhotoRecord> _photos;
@@ -89,11 +97,11 @@ class GooglePhotos extends ServiceInterface{
     String next = initialEndpoint;
     List dataList = [];
     int reqNum = 0;
+    this.loadStatus = "0 photos processed";
     while (next != null){
       // Request the next page of items
       Response rep = await get(next, headers: headers);
       reqNum++;
-      print("$reqNum, ${dataList.length}");
       if (rep.statusCode == 200){
         Map responseData = jsonDecode(rep.body);
         if (responseData.keys.contains("nextPageToken") &&
@@ -104,9 +112,11 @@ class GooglePhotos extends ServiceInterface{
           next = null;
         }
         dataList += responseData["mediaItems"];
+        this.loadStatus = "${dataList.length} photos processed";
       }
       else{
         print(rep.body);
+        this.loadStatus = "Error";
         next = null;
       }
     }
