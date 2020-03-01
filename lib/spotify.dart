@@ -10,6 +10,7 @@ import 'package:stories/service_utils.dart';
 // External imports
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart';
+import 'package:intl/intl.dart';
 
 class SpotifyTrack extends ServicePoint{
   int minDuration = 5;
@@ -32,7 +33,7 @@ class SpotifyTrack extends ServicePoint{
     /**
      * Export to a json serializable map
      */
-    return {
+    Map trackData ={
       "added": this.added.millisecondsSinceEpoch,
       "previewUrl": this.previewUrl,
       "externalUrl": this.externalUrl,
@@ -42,6 +43,7 @@ class SpotifyTrack extends ServicePoint{
       "albumCoverUrl": this.albumCoverUrl,
       "popularity": this.popularity
     };
+    return trackData;
   }
 }
 
@@ -60,7 +62,7 @@ class Spotify extends ServiceInterface {
 
   List<DateTime> get timeSeries{
     if (this._tracks != null){
-      return this._tracks.keys;
+      return this._tracks.keys.toList();
     }
     else{
       return [];
@@ -68,7 +70,7 @@ class Spotify extends ServiceInterface {
   }
 
   void doOauth() async{
-    if (this._accessKey == null){
+    if (!this.loaded && this._accessKey == null){
       this.loadStatus.add("Waiting for login...");
       Map spotifyCreds = await this.loadKey("spotify");
       String clientId = spotifyCreds["client_id"];
@@ -86,6 +88,8 @@ class Spotify extends ServiceInterface {
     }
     else{
       this.startDataDownload();
+      DateFormat cacheFormat = DateFormat.yMd();
+      this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
     }
   }
 
@@ -101,6 +105,9 @@ class Spotify extends ServiceInterface {
   }
 
   setPoint(DateTime time, data){
+    if (this._tracks == null){
+      this._tracks = {};
+    }
     this._tracks[time] = SpotifyTrack(
         DateTime.fromMillisecondsSinceEpoch(data["added"]),
         data["previewUrl"],
@@ -137,6 +144,11 @@ class Spotify extends ServiceInterface {
   }
 
   Future<void> doDataDownload() async{
+    if (this.downloading){
+      print("Not duplicating download");
+      return;
+    }
+    this.downloading = true;
     // Do this as a plain URL instead of the slightly easier URI
     // so the spotify next objects can be treated the same
     String next = "https://api.spotify.com/v1/me/tracks/?offset=0&limit=50";

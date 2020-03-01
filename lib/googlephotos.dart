@@ -6,9 +6,9 @@ import 'dart:convert';
 import 'package:stories/service_utils.dart';
 
 // External imports
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart';
+import 'package:intl/intl.dart';
 
 String _photoScope = "https://www.googleapis.com/auth/photoslibrary.readonly";
 GoogleSignIn _googleSignIn = GoogleSignIn(
@@ -38,6 +38,18 @@ class PhotoRecord extends ServicePoint{
 
   }
 
+  Map serialize(){
+    Map photoData = {
+      "created": this.created.millisecondsSinceEpoch,
+      "baseUrl": this.baseUrl,
+      "externalUrl": this.externalUrl,
+      "mimeType": this.mimeType,
+      "filename": this.filename,
+      "metadata": this.metadata
+    };
+    return photoData;
+  }
+
   PhotoRecord({this.created, this.baseUrl, this.externalUrl, this.mimeType,
               this.filename, this.metadata});
 }
@@ -63,6 +75,38 @@ class GooglePhotos extends ServiceInterface{
       await _googleSignIn.signIn();
     } catch (error) {
       print(error);
+    }
+  }
+
+  getPoint(DateTime time){
+    try{
+      return this._photos[time];
+    }
+    catch(e){
+      return null;
+    }
+  }
+
+  setPoint(DateTime time, data){
+    if (this._photos == null){
+      this._photos = {};
+    }
+    this._photos[time] = PhotoRecord(
+      created: DateTime.fromMillisecondsSinceEpoch(data["created"]),
+      mimeType: data["mimeType"],
+      externalUrl: data["externalUrl"],
+      baseUrl: data["baseUrl"],
+      filename: data["filename"],
+      metadata: data["metadata"]
+    );
+  }
+
+  List<DateTime> get timeSeries{
+    if (this._photos != null){
+      return this._photos.keys.toList();
+    }
+    else {
+      return [];
     }
   }
 
@@ -139,6 +183,8 @@ class GooglePhotos extends ServiceInterface{
     }
     else{
       this.startDataDownload();
+      DateFormat cacheFormat = DateFormat.yMd();
+      this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
     }
   }
 }

@@ -9,6 +9,8 @@ import 'package:convert/convert.dart';
 // External imports
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 
 class ServiceWidget{
 }
@@ -101,9 +103,10 @@ class ServiceInterface{
     Map cacheData = {"loadedAt": this.loadedAt.millisecondsSinceEpoch,
     "data": {}};
     for (DateTime time in this.timeSeries){
-      cacheData["data"][time.millisecondsSinceEpoch] = getPoint(time).serialize();
+      // JSON encoded maps must have string keys
+      cacheData["data"][time.millisecondsSinceEpoch.toString()] = getPoint(time).serialize();
     }
-    print("Caching ${cacheData.length} datapoints under key ${this._cacheName}");
+    print("Caching ${cacheData['data'].length} datapoints under key ${this._cacheName}");
     _writeCache(cacheData);
   }
 
@@ -116,8 +119,7 @@ class ServiceInterface{
      * Download the data. Cache should likely be called when this is done
      */
     // Set downloading = true to prevent multiple downloads
-    if (!this.downloading){
-      this.downloading = true;
+    if (!this.downloading && !this.loaded){
       print("Starting ${this.name} download");
       DateTime startTime = DateTime.now();
       await this.doDataDownload();
@@ -126,7 +128,9 @@ class ServiceInterface{
       // Use inMilliseconds instead of inSeconds because we're interested in fractional seconds
       double secondsTaken = (endTime.difference(startTime).inMilliseconds / 1000);
       print("Finished ${this.name} download, took $secondsTaken seconds");
-      // TODO: call cache here
+      this.loadedAt = startTime;
+      this.loadStatus.add("Caching...");
+      this.doCache();
       this.loaded = true;
       this.loadStatus.add("Done");
       // Close the load status subscription
@@ -168,10 +172,11 @@ class ServiceInterface{
     DateTime cachedAt = DateTime.fromMillisecondsSinceEpoch(
         (cachedAtStamp)
     );
+    this.loadedAt = cachedAt;
     // Process the raw data
-    for (num timestamp in cacheData["data"].keys){
-      setPoint(cachedAt,
-              cacheData[timestamp]);
+    for (String timestamp in cacheData["data"].keys){
+      setPoint(DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp)),
+              cacheData["data"][timestamp]);
     }
   }
 
