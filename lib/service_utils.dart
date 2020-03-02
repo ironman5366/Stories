@@ -5,6 +5,8 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/material.dart';
 import 'package:convert/convert.dart';
 
+// Internal imports
+import 'package:stories/variables.dart';
 
 // External imports
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,8 +14,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 
 
-class ServiceWidget{
-}
 
 launchURL(String url) async {
   try{
@@ -25,9 +25,25 @@ launchURL(String url) async {
   }
 }
 
+enum MediaType{
+  photo,
+  audio,
+  text
+}
+
 class ServicePoint{
   int minDuration;
   int maxDuration;
+  ServiceInterface service;
+
+  // If the service has a signature color (for example Spotify green), add it here
+  Color color = theme.accentColor;
+
+  MediaType mediaType;
+
+  Widget render(BuildContext context){
+    throw UnimplementedError();
+  }
 
   serialize(){
     throw UnimplementedError();
@@ -99,6 +115,21 @@ class ServiceInterface{
      */
   }
 
+  List<int> get years{
+    /**
+     * Return the years that this service has data for
+     */
+    // Sort the time series
+    List<DateTime> times = this.timeSeries;
+    List<int> currYears = [];
+    for (DateTime t in times){
+      if (!currYears.contains(t.year)){
+        currYears.add(t.year);
+      }
+    }
+    return currYears;
+  }
+
   void doCache() async{
     Map cacheData = {"loadedAt": this.loadedAt.millisecondsSinceEpoch,
     "data": {}};
@@ -112,6 +143,11 @@ class ServiceInterface{
 
   Future<void> doDataDownload() async{
     throw UnimplementedError();
+  }
+
+  void refresh(){
+    this.loaded = false;
+    this.doAuth();
   }
 
   void startDataDownload() async{
@@ -146,7 +182,7 @@ class ServiceInterface{
     return (this._prefs.get(this._cacheName) != null);
   }
 
-  void doOauth(){
+  void doAuth(){
     throw UnimplementedError();
   }
 

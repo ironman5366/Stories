@@ -1,17 +1,16 @@
 // Builtin imports
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/services.dart' show PlatformException;
-import 'package:stories/googlephotos.dart';
 import 'package:stories/service_utils.dart';
 import 'dart:async';
-
-
 
 // Internal imports
 import 'package:stories/variables.dart';
 import 'package:stories/spotify.dart';
+import 'package:stories/googlephotos.dart';
+import 'package:stories/story_utils.dart';
+import 'package:stories/options_page.dart';
 
 // External imports
 import 'package:uni_links/uni_links.dart';
@@ -85,7 +84,10 @@ class _HomeState extends State<Home> {
       tiles.add(ListTile(
         leading: service.icon,
         title: Text(service.name, style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(status)
+        subtitle: Text(status),
+        trailing: IconButton(icon: Icon(Icons.refresh), onPressed: (){
+          service.refresh();
+        })
       ));
     }
     return tiles;
@@ -134,7 +136,7 @@ class _HomeState extends State<Home> {
                 this.loadStatus[service.name] = d;
               });
             });
-            service.doOauth();
+            service.doAuth();
             setState((){
               selected.add(service);
             });
@@ -181,7 +183,12 @@ class _HomeState extends State<Home> {
     }
     if (enabled){
       return CupertinoButton(child: Text(buttonText), onPressed: (){
-        print("Continue!");
+        Story story = Story(services: this.selected);
+        Navigator.push(this.context,
+          new MaterialPageRoute(
+            builder: (BuildContext context) => new OptionsStep(story)
+          )
+        );
       }, color: theme.accentColor);
     }
     else{

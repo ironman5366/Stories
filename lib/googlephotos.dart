@@ -25,6 +25,8 @@ class PhotoRecord extends ServicePoint{
   String mimeType;
   String filename;
 
+  MediaType mediaType = MediaType.photo;
+
   Map metadata;
 
   String get viewURL{
@@ -36,6 +38,23 @@ class PhotoRecord extends ServicePoint{
       return "${this.baseUrl}=w${this.metadata["width"]}-h${this.metadata["height"]}";
     }
 
+  }
+
+  Widget render(BuildContext context){
+    return Card(
+      child: Column(
+        children: [
+          Container(
+            child: Image(image: NetworkImage(this.viewURL))
+          ),
+          ButtonBar(children: [
+            IconButton(icon: Icon(Icons.open_in_new), onPressed: (){
+              launchURL(this.baseUrl);
+            })
+          ])
+        ]
+      )
+    );
   }
 
   Map serialize(){
@@ -171,7 +190,7 @@ class GooglePhotos extends ServiceInterface{
     this._photos = photos;
   }
 
-  void doOauth() async{
+  void doAuth() async{
     if (!this.loaded && _currentUser == null){
       this.loadStatus.add("Waiting for login...");
       _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
@@ -182,9 +201,13 @@ class GooglePhotos extends ServiceInterface{
       _handleSignIn();
     }
     else{
-      this.startDataDownload();
-      DateFormat cacheFormat = DateFormat.yMd();
-      this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
+      if (this.loaded){
+        DateFormat cacheFormat = DateFormat.yMd();
+        this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
+      }
+      else{
+        this.startDataDownload();
+      }
     }
   }
 }

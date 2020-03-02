@@ -12,9 +12,15 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart';
 import 'package:intl/intl.dart';
 
+const Color spotifyGreen = Color(0XFF1DB954);
+
 class SpotifyTrack extends ServicePoint{
   int minDuration = 5;
   int maxDuration = 30;
+
+  MediaType mediaType = MediaType.audio;
+
+  Color color = spotifyGreen;
 
   DateTime added;
   String previewUrl;
@@ -28,6 +34,17 @@ class SpotifyTrack extends ServicePoint{
   SpotifyTrack(this.added, this.previewUrl, this.externalUrl,
                 this.album, this.artist, this.name,
                 this.albumCoverUrl, this.popularity);
+
+  Widget render(BuildContext context){
+    return ListTile(
+      leading: Image(image: NetworkImage(this.albumCoverUrl)),
+      title: Text(this.name, style: TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text("${this.artist}, ${this.album}"),
+      trailing: IconButton(icon: Icon(Icons.open_in_new), onPressed: (){
+        launchURL(this.externalUrl);
+      })
+    );
+  }
 
   Map serialize(){
     /**
@@ -49,7 +66,7 @@ class SpotifyTrack extends ServicePoint{
 
 class Spotify extends ServiceInterface {
   String name = "Spotify";
-  Widget icon = Icon(FontAwesomeIcons.spotify, color: Color(0XFF1DB954));
+  Widget icon = Icon(FontAwesomeIcons.spotify, color: spotifyGreen);
   String description = "Songs from your spotify library";
   String _redirect_uri = "stories-oauth://spotify-callback";
   // The required scopes to read a users library and playlists
@@ -69,7 +86,7 @@ class Spotify extends ServiceInterface {
     }
   }
 
-  void doOauth() async{
+  void doAuth() async{
     if (!this.loaded && this._accessKey == null){
       this.loadStatus.add("Waiting for login...");
       Map spotifyCreds = await this.loadKey("spotify");
