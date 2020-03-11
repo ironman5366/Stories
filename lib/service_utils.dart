@@ -87,13 +87,6 @@ class ServiceInterface{
     throw UnimplementedError();
   }
 
-  List<Map<DateTime, ServiceWidget>> parseSeries(Map<num, Map> rawData){
-    /**
-     * The function that loads cached data back into a usable format
-     */
-    throw UnimplementedError();
-  }
-
   bool acknowledgeOauthKey(String initialLink){
     throw UnimplementedError();
   }
@@ -185,8 +178,6 @@ class ServiceInterface{
   void doAuth(){
     throw UnimplementedError();
   }
-
-  // TODO: from and to JSON serializers
 
   void _writeCache(data){
     /**
