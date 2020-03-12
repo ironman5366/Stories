@@ -60,11 +60,17 @@ class ServiceInterface{
   bool loaded;
   bool downloading = false;
   StreamController<String> loadStatus;
+  Map optionValues = {};
+  bool offersOptions = false;
 
   Map shapeData(){
     /**
      * The function that shapes data from the service into a usable timeseries
      */
+    throw UnimplementedError();
+  }
+
+  Widget options(){
     throw UnimplementedError();
   }
 
@@ -106,6 +112,14 @@ class ServiceInterface{
      * A method that should set the internal event within a service to a value,
      * where data is JSON serializable
      */
+    throw UnimplementedError();
+  }
+
+  bool pointIsValid(point){
+    /**
+     * A method to check if a given point matches the criterion for the fucntion
+     */
+    return true;
   }
 
   List<int> get years{
@@ -121,6 +135,33 @@ class ServiceInterface{
       }
     }
     return currYears;
+  }
+
+  List<ServicePoint> pointsInRange(DateTime start, DateTime end){
+    /**
+     * Get all the points that fall between start and end. End must be after
+     * start
+     */
+    assert(end.isAfter(start));
+    List<DateTime> times = this.timeSeries;
+    List<ServicePoint> p = [];
+    for (DateTime t in times){
+      if (t.isAfter(start) && t.isBefore(end)){
+        p.add(this.getPoint(t));
+      }
+    }
+    return p;
+  }
+
+  List<ServicePoint> pointsInYear(int year){
+    /**
+     * A helper function to call pointsInRange for a certain year.
+     * Start from one microsecond from the beginning of the year, end right
+     * after the year ends
+     */
+    DateTime yearStart = DateTime(year).subtract(Duration(microseconds: 1));
+    DateTime yearEnd = DateTime(year+1);
+    return pointsInRange(yearStart, yearEnd);
   }
 
   void doCache() async{

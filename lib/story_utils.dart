@@ -14,7 +14,9 @@ import 'package:uni_links/uni_links.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class Page{
-  Map<ServiceInterface, ServicePoint> _points;
+  final Map<ServiceInterface, ServicePoint> _points;
+
+  Page(this._points);
 
   Widget render(BuildContext context){
     // Photo/Video widgets that should be at the top of the bundle
@@ -97,12 +99,24 @@ class Page{
 class Story{
   List<int> years;
   final List<ServiceInterface> services;
-  List<Page> _pages;
 
   Story({this.services});
 
+  Iterable<Page> pages() sync*{
+    for (int year in this.years){
+      // Count the number of points for each service
+      Map<ServiceInterface, ServicePoint> yearPoints = {};
+      for (ServiceInterface service in this.services) {
+        // Filter to find the first point that's valid
+        yearPoints[service] = service.pointsInYear(year).firstWhere((point) =>
+            service.pointIsValid(point));
+      }
+      yield Page(yearPoints);
+    }
+  }
 
-  Widget yearSelector() {
+
+  List<Widget> yearSelector() {
     List<int> serviceYears;
     for (ServiceInterface s in this.services) {
       if (serviceYears == null) {
@@ -124,32 +138,25 @@ class Story{
     for (int y in serviceYears){
       yearTiles.add(
         Card(
-          child: CheckboxListTile(
-            checkColor: theme.splashColor,
-            title: Text(y.toString(), style: TextStyle(fontWeight: FontWeight.bold)),
-            value: true,
-            onChanged: (bool b){
-              if (b){
-                if (!this.years.contains(y)){
-                  this.years.add(y);
-                }
-              }
-              else{
-                this.years.remove(y);
-              }
-            },
-          )
+          child:
+            CheckboxListTile(
+                checkColor: theme.splashColor,
+                title: Text(y.toString(), style: TextStyle(fontWeight: FontWeight.bold)),
+                value: true,
+                onChanged: (bool b){
+                  if (b){
+                    if (!this.years.contains(y)){
+                      this.years.add(y);
+                    }
+                  }
+                  else{
+                    this.years.remove(y);
+                  }
+                },
+            )
         )
       );
     }
-
-
-
-    return Padding(
-      padding: EdgeInsets.all(5.0),
-      child: Column(
-        children: yearTiles
-      )
-    );
+    return yearTiles;
   }
 }

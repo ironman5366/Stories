@@ -1,6 +1,7 @@
 // Builtin/flutter imports
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:math';
 
 // Internal imports
 import 'package:stories/service_utils.dart';
@@ -25,6 +26,8 @@ class PhotoRecord extends ServicePoint{
   String mimeType;
   String filename;
 
+  Map headers;
+
   MediaType mediaType = MediaType.photo;
 
   Map metadata;
@@ -40,12 +43,40 @@ class PhotoRecord extends ServicePoint{
 
   }
 
+  bool get isScreenshot{
+    /**
+     * Try to determine whether or not this photo is a screenshot based on
+     * aspect ratio and metadata
+     */
+    if (this.mediaType == MediaType.photo){
+      if (this.metadata.containsKey("photo") &&
+          this.metadata["photo"].length > 0){
+        return false;
+      }
+      else{
+        // The photo has no metadata on what camera it was taken with.
+        // Check to see if the aspect ratio looks like a phone or computer
+        int width = int.parse(this.metadata["width"]);
+        int height = int.parse(this.metadata["height"]);
+        int maxDim = max(width, height);
+        int minDim = min(width, height);
+        num aspectRatio = (maxDim / minDim);
+        // Looks like a phone or desktop aspect ratio
+        return (aspectRatio >= 1.5);
+      }
+    }
+    else {
+      return false;
+    }
+  }
+
   Widget render(BuildContext context){
     return Card(
       child: Column(
         children: [
           Container(
-            child: Image(image: NetworkImage(this.viewURL))
+            child: Image(image: NetworkImage(this.viewURL, headers:
+            this.headers.cast<String, String>()))
           ),
           ButtonBar(children: [
             IconButton(icon: Icon(Icons.open_in_new), onPressed: (){
@@ -64,13 +95,15 @@ class PhotoRecord extends ServicePoint{
       "externalUrl": this.externalUrl,
       "mimeType": this.mimeType,
       "filename": this.filename,
-      "metadata": this.metadata
+      "metadata": this.metadata,
+      // TODO: cache these headers independently of all the photo items
+      "headers": this.headers
     };
     return photoData;
   }
 
   PhotoRecord({this.created, this.baseUrl, this.externalUrl, this.mimeType,
-              this.filename, this.metadata});
+              this.filename, this.metadata, this.headers});
 }
 
 class GooglePhotos extends ServiceInterface{
@@ -86,7 +119,7 @@ class GooglePhotos extends ServiceInterface{
       );
   String description = "Photos from your google photos library";
   GoogleSignInAccount _currentUser;
-
+  bool offersOptions = true;
   Map<DateTime, PhotoRecord> _photos;
 
   Future<void> _handleSignIn() async {
@@ -116,8 +149,19 @@ class GooglePhotos extends ServiceInterface{
       externalUrl: data["externalUrl"],
       baseUrl: data["baseUrl"],
       filename: data["filename"],
-      metadata: data["metadata"]
+      metadata: data["metadata"],
+      headers: data["headers"]
     );
+  }
+
+  bool pointIsValid(point){
+    // If screenshots are excluded, check to make sure the point is not one
+    if (!this.optionValues["include_screenshots"]){
+      return !(point.isScreenshot);
+    }
+    else{
+      return true;
+    }
   }
 
   List<DateTime> get timeSeries{
@@ -129,7 +173,7 @@ class GooglePhotos extends ServiceInterface{
     }
   }
 
-  Map<DateTime, PhotoRecord> _parseRecords(List responseData){
+  Map<DateTime, PhotoRecord> _parseRecords(List responseData, Map headers){
     /**
      * Parse a list of google photos API responses into an internal usable track structure
      */
@@ -149,9 +193,21 @@ class GooglePhotos extends ServiceInterface{
                                               filename: filename,
                                               mimeType: mimeType,
                                               baseUrl: baseUrl,
-                                              externalUrl: productUrl);
+                                              externalUrl: productUrl,
+                                              headers: headers);
     }
     return photoAccumulator;
+  }
+
+  Widget options(){
+    this.optionValues["include_screenshots"] = false;
+    return CheckboxListTile(
+      title: Text("Include screenshots?"),
+      value: this.optionValues["include_screenshots"],
+      onChanged: (v){
+        this.optionValues["include_screenshots"] = v;
+      },
+    );
   }
 
   Future<void> doDataDownload() async{
@@ -184,7 +240,7 @@ class GooglePhotos extends ServiceInterface{
         next = null;
       }
     }
-    Map<DateTime, PhotoRecord> photos = _parseRecords(dataList);
+    Map<DateTime, PhotoRecord> photos = _parseRecords(dataList, headers);
     print("Parsed ${photos.keys.length} photos in $reqNum requests");
     this.loadStatus.add("Done");
     this._photos = photos;
