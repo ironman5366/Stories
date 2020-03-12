@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:stories/service_utils.dart';
 import 'dart:async';
+import 'package:async/async.dart';
 
 // Internal imports
 import 'package:stories/variables.dart';
@@ -13,36 +14,61 @@ import 'package:stories/story_utils.dart';
 // External imports
 import 'package:uni_links/uni_links.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class StoryPageScreen extends StatelessWidget{
-  final Iterator<Page> _page;
+  final StreamQueue<Page> _page;
+  Function stopMedia;
 
   StoryPageScreen(this._page);
 
+  void nextPage(BuildContext context) async{
+    if (this.stopMedia == null){
+      print("Warning: stopMedia undefined");
+    }
+    else{
+      await stopMedia();
+    }
+    bool hasNext = await this._page.hasNext;
+    if (hasNext) {
+      this._page.next;
+      Navigator.push(
+        context,
+        new MaterialPageRoute(
+          builder: (BuildContext context) => new StoryPageScreen(this._page)
+        )
+      );
+    }
+    else{
+      print("Show story end here");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    Page current = this._page.current;
-    print("Got current");
     return Scaffold(
       appBar: AppBar(
         title: Text("Stories")
       ),
-      body: this._page.current.render(context),
+      body: FutureBuilder(
+        future: this._page.next,
+        initialData: SpinKitChasingDots(color: theme.accentColor),
+        builder: (BuildContext context, AsyncSnapshot snapshot){
+          if (snapshot.connectionState == ConnectionState.done){
+            Page data = snapshot.data;
+            data.startPageMedia();
+            this.stopMedia = data.stopPageMedia;
+            return data.render(context);
+          }
+          else{
+            return SpinKitChasingDots(color: theme.accentColor);
+          }
+        }
+      ),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.arrow_forward),
         onPressed: (){
-          if (this._page.moveNext()){
-            Navigator.push(
-              context,
-              new MaterialPageRoute(
-                builder: (BuildContext context) => StoryPageScreen(this._page)
-              )
-            );
-          }
-          else{
-            print("Done");
-          }
+          this.nextPage(context);
         },
       ),
     );

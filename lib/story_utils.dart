@@ -94,6 +94,18 @@ class Page{
       )
     );
   }
+
+  void startPageMedia() async{
+    for (ServicePoint point in this._points.values){
+      await point.startMedia();
+    }
+  }
+
+  void stopPageMedia() async{
+    for (ServicePoint point in this._points.values){
+      await point.stopMedia();
+    }
+  }
 }
 
 class Story{
@@ -102,16 +114,81 @@ class Story{
 
   Story({this.services});
 
-  Iterable<Page> pages() sync*{
-    for (int year in this.years){
-      // Count the number of points for each service
-      Map<ServiceInterface, ServicePoint> yearPoints = {};
-      for (ServiceInterface service in this.services) {
-        // Filter to find the first point that's valid
-        yearPoints[service] = service.pointsInYear(year).firstWhere((point) =>
-            service.pointIsValid(point));
+  /// Try to match peaks of services
+  Map<ServiceInterface, ServicePoint> _isolatePoints(Map<ServiceInterface,
+      List<ServicePoint>> points){
+    Map<ServiceInterface, ServicePoint> chosenPoints = {};
+    for (ServiceInterface service in points.keys){
+      List<ServicePoint> pOps = points[service];
+      // Sort the points by their date
+      pOps.sort((ServicePoint o, ServicePoint p) =>
+          o.created.compareTo(p.created));
+      DateTime firstPoint = pOps.first.created;
+      DateTime lastPoint = pOps.last.created;
+      Duration pointDiff = lastPoint.difference(firstPoint);
+      // Break the duration of the difference of the points into equal sized chunks, and identify the largest
+      int microChunks = pointDiff.inMicroseconds ~/ pOps.length;
+      int peakLen = 0;
+      List<ServicePoint> peak;
+      // Iterate through the chunks that are defined, and pick the chunk which has the most points, the peak
+      Duration chunkDur = Duration(microseconds: microChunks);
+      DateTime chunkEnd = firstPoint.add(chunkDur);
+      int idx = 0;
+      while (chunkEnd.isBefore(lastPoint) ||
+          chunkEnd.isAtSameMomentAs(lastPoint)){
+        int chunkIdx = pOps.lastIndexWhere((element) =>
+          (element.created.isBefore(chunkEnd) ||
+              element.created.isAtSameMomentAs(chunkEnd)));
+        List<ServicePoint> currChunk = pOps.sublist(idx, chunkIdx);
+        if (currChunk.length > peakLen){
+          peakLen = currChunk.length;
+          peak = currChunk;
+        }
+        // Update what datetime this current chunk is
+        chunkEnd = chunkEnd.add(chunkDur);
       }
-      yield Page(yearPoints);
+      print(peakLen);
+      // Sort the points in the peak by their compareTo functions
+      peak.sort((ServicePoint s, ServicePoint o) => s.compareTo(o));
+      print(peak.length);
+      // Choose the first sorted point in the pak
+      chosenPoints[service] = peak.first;
+    }
+    return chosenPoints;
+  }
+
+  Stream<Page> pages() async*{
+    for (int year in this.years){
+      // Iterate through the months in the year
+      for (int m=1; m<=12; m++){
+        // Determine when to start and end for the month range
+        DateTime monthStart = DateTime(year, m).subtract(Duration(microseconds: 1));
+        DateTime monthEnd;
+        if (m == 12){
+          monthEnd = DateTime(year+1, 1);
+        }
+        else{
+          monthEnd = DateTime(year, m+1);
+        }
+        // Determine if all services have points in this month
+        Map<ServiceInterface, List<ServicePoint>> found = {};
+        bool serviceExcluded = false;
+        for (ServiceInterface service in this.services){
+          List<ServicePoint> monthPoints = service.pointsInRange(monthStart,
+              monthEnd);
+          if (monthPoints.length == 0){
+            serviceExcluded = true;
+            break;
+          }
+          else{
+            found[service] = monthPoints;
+          }
+        }
+        if (!serviceExcluded){
+          // If they do, pick which points to display
+          yield new Page(_isolatePoints(found));
+        }
+      }
     }
   }
 

@@ -21,16 +21,27 @@ class PhotoRecord extends ServicePoint{
   int maxDuration = 30;
 
   DateTime created;
-  String baseUrl;
   String externalUrl;
   String mimeType;
   String filename;
-
+  String id;
   Map headers;
+  String baseUrl;
+  NetworkImage _renderedImage;
 
   MediaType mediaType = MediaType.photo;
 
   Map metadata;
+
+  Future<void> preRender() async{
+    Response rep = await
+      get("https://photoslibrary.googleapis.com/v1/mediaItems/${this.id}",
+        headers: this.headers.cast<String, String>());
+    Map photoData = jsonDecode(rep.body);
+    this.baseUrl = photoData["baseUrl"];
+    // Also start loading the image ahead of time
+    this._renderedImage = NetworkImage(this.viewURL);
+  }
 
   String get viewURL{
     if (this.mimeType.contains("video")){
@@ -40,14 +51,18 @@ class PhotoRecord extends ServicePoint{
       // Append width and height parameters to the image bytes
       return "${this.baseUrl}=w${this.metadata["width"]}-h${this.metadata["height"]}";
     }
-
   }
 
+  int compareTo(p){
+    PhotoRecord photo = p;
+    // For now just compare the datetimes on these photos
+    return this.created.compareTo(photo.created);
+  }
+
+  ///
+  /// Try to determine whether or not this photo is a screenshot based on
+  /// aspect ratio and metadata
   bool get isScreenshot{
-    /**
-     * Try to determine whether or not this photo is a screenshot based on
-     * aspect ratio and metadata
-     */
     if (this.mediaType == MediaType.photo){
       if (this.metadata.containsKey("photo") &&
           this.metadata["photo"].length > 0){
@@ -75,8 +90,7 @@ class PhotoRecord extends ServicePoint{
       child: Column(
         children: [
           Container(
-            child: Image(image: NetworkImage(this.viewURL, headers:
-            this.headers.cast<String, String>()))
+            child: Image(image: this._renderedImage)
           ),
           ButtonBar(children: [
             IconButton(icon: Icon(Icons.open_in_new), onPressed: (){
@@ -91,19 +105,17 @@ class PhotoRecord extends ServicePoint{
   Map serialize(){
     Map photoData = {
       "created": this.created.millisecondsSinceEpoch,
-      "baseUrl": this.baseUrl,
       "externalUrl": this.externalUrl,
       "mimeType": this.mimeType,
       "filename": this.filename,
       "metadata": this.metadata,
-      // TODO: cache these headers independently of all the photo items
-      "headers": this.headers
+      "id": this.id
     };
     return photoData;
   }
 
   PhotoRecord({this.created, this.baseUrl, this.externalUrl, this.mimeType,
-              this.filename, this.metadata, this.headers});
+              this.filename, this.metadata, this.id, this.headers});
 }
 
 class GooglePhotos extends ServiceInterface{
@@ -121,6 +133,7 @@ class GooglePhotos extends ServiceInterface{
   GoogleSignInAccount _currentUser;
   bool offersOptions = true;
   Map<DateTime, PhotoRecord> _photos;
+  Map _headers;
 
   Future<void> _handleSignIn() async {
     try {
@@ -144,13 +157,13 @@ class GooglePhotos extends ServiceInterface{
       this._photos = {};
     }
     this._photos[time] = PhotoRecord(
-      created: DateTime.fromMillisecondsSinceEpoch(data["created"]),
-      mimeType: data["mimeType"],
-      externalUrl: data["externalUrl"],
-      baseUrl: data["baseUrl"],
-      filename: data["filename"],
-      metadata: data["metadata"],
-      headers: data["headers"]
+        created: DateTime.fromMillisecondsSinceEpoch(data["created"]),
+        mimeType: data["mimeType"],
+        externalUrl: data["externalUrl"],
+        filename: data["filename"],
+        metadata: data["metadata"],
+        headers: this._headers,
+        id: data["id"]
     );
   }
 
@@ -173,6 +186,17 @@ class GooglePhotos extends ServiceInterface{
     }
   }
 
+  Future<void> onStart() async{
+    if (this._currentUser == null){
+      GoogleSignInAccount account = await _googleSignIn.signInSilently();
+      // If this account is null, cache won't be loaded anyway because user hasn't signed in before.
+      if (account != null){
+        this._currentUser = account;
+        this._headers = await account.authHeaders;
+      }
+    }
+  }
+
   Map<DateTime, PhotoRecord> _parseRecords(List responseData, Map headers){
     /**
      * Parse a list of google photos API responses into an internal usable track structure
@@ -185,16 +209,17 @@ class GooglePhotos extends ServiceInterface{
       DateTime created = DateTime.parse(rawCreated);
       String filename = photoData["filename"];
       String mimeType = photoData["mimeType"];
-      String baseUrl = photoData["baseUrl"];
       String productUrl = photoData["productUrl"];
+      String id = photoData["id"];
       // Create the photo object, and associate it with it's creation time
       photoAccumulator[created] = PhotoRecord(created: created,
                                               metadata: metadata,
                                               filename: filename,
                                               mimeType: mimeType,
-                                              baseUrl: baseUrl,
                                               externalUrl: productUrl,
-                                              headers: headers);
+                                              headers: headers,
+                                              id: id
+                                            );
     }
     return photoAccumulator;
   }
@@ -211,22 +236,50 @@ class GooglePhotos extends ServiceInterface{
   }
 
   Future<void> doDataDownload() async{
-    // https://photoslibrary.googleapis.com/v1/mediaItems
-    Map headers = await _currentUser.authHeaders;
-    String initialEndpoint = "https://photoslibrary.googleapis.com/v1/mediaItems/?pageSize=100";
-    String next = initialEndpoint;
+    // https://photoslibrary.googleapis.com/v1/mediaItems:search
+    Map headers = this._headers;
+    String initialEndpoint = "https://photoslibrary.googleapis.com/v1/mediaItems:search";
+    // Try not to include any photos that could have sensitive information,
+    // like documents, or any pictures that would likely be
+    // less nostalgic, such as food
+    Map reqData = {
+      "filters": {
+        "contentFilter": {
+          "excludedContentCategories": [
+            "DOCUMENTS",
+            "RECEIPTS",
+            "FOOD",
+            "WHITEBOARDS",
+            "SCREENSHOTS",
+            "UTILITY",
+            "ARTS",
+            "CRAFTS",
+            "FASHION",
+            "HOUSES",
+          ]
+        },
+        "mediaTypeFilter": {
+          "mediaTypes": [
+            "PHOTO"
+          ]
+        }
+      },
+      "pageSize": 100
+    };
+    Map next = reqData;
     List dataList = [];
     int reqNum = 0;
     this.loadStatus.add("0 photos processed");
     while (next != null){
       // Request the next page of items
-      Response rep = await get(next, headers: headers);
+      Response rep = await post(initialEndpoint, headers: headers,
+                                body: jsonEncode(next));
       reqNum++;
       if (rep.statusCode == 200){
         Map responseData = jsonDecode(rep.body);
         if (responseData.keys.contains("nextPageToken") &&
             responseData["nextPageToken"] != null){
-           next = initialEndpoint+"&pageToken=${responseData["nextPageToken"]}";
+           next["pageToken"] = responseData["nextPageToken"];
         }
         else{
           next = null;
@@ -246,23 +299,42 @@ class GooglePhotos extends ServiceInterface{
     this._photos = photos;
   }
 
+  /// Log in to google, set headers, and optionally call callback
+  Future<void> doLoginSequence({Function callback}) async{
+    void setHeaders() async{
+      this._headers = await _currentUser.authHeaders;
+    }
+    _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
+      print("Got sign in ${account.displayName}");
+      _currentUser = account;
+      setHeaders();
+      if (callback != null){
+        callback();
+      }
+    });
+    await _handleSignIn();
+  }
+
   void doAuth() async{
     if (!this.loaded && _currentUser == null){
-      this.loadStatus.add("Waiting for login...");
-      _googleSignIn.onCurrentUserChanged.listen((GoogleSignInAccount account) {
-        print("Got sign in");
-        _currentUser = account;
-        this.startDataDownload();
-      });
-      _handleSignIn();
+      doLoginSequence(callback: this.startDataDownload);
     }
     else{
-      if (this.loaded){
-        DateFormat cacheFormat = DateFormat.yMd();
-        this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
+      // Sign in has to happen regardless for fresh headers for photo get, so do this as well
+      void doLoad(){
+        if (this.loaded){
+          DateFormat cacheFormat = DateFormat.yMd();
+          this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
+        }
+        else{
+          this.startDataDownload();
+        }
+      }
+      if (_currentUser == null){
+        doLoginSequence(callback: doLoad);
       }
       else{
-        this.startDataDownload();
+        doLoad();
       }
     }
   }

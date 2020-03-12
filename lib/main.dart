@@ -136,7 +136,7 @@ class _HomeState extends State<Home> {
                 this.loadStatus[service.name] = d;
               });
             });
-            service.doAuth();
+            service.initialize();
             setState((){
               selected.add(service);
             });

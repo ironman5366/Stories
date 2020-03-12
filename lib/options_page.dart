@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:stories/service_utils.dart';
 import 'dart:async';
+import 'package:async/async.dart';
 
 // Internal imports
 import 'package:stories/variables.dart';
@@ -21,8 +22,7 @@ class OptionsStep extends StatelessWidget{
   OptionsStep(this.story);
 
   void startStory(BuildContext context) async{
-    Iterator<Page> pageIt = this.story.pages().iterator;
-    pageIt.moveNext();
+    StreamQueue<Page> pageIt = new StreamQueue(this.story.pages());
     Navigator.push(context,
       new MaterialPageRoute(
         builder: (BuildContext context) => new StoryPageScreen(pageIt)

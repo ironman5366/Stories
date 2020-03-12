@@ -34,6 +34,7 @@ enum MediaType{
 class ServicePoint{
   int minDuration;
   int maxDuration;
+  DateTime created;
   ServiceInterface service;
 
   // If the service has a signature color (for example Spotify green), add it here
@@ -41,7 +42,24 @@ class ServicePoint{
 
   MediaType mediaType;
 
+  /// A method that should be overridden if the point has asynchronous work to
+  /// do before render time. For example, the google photos API only allows
+  /// caching of image URLs for 60 minutes, so prior to an image being rendered,
+  /// it utilizes it's prerender method to call the API again and get the image
+  Future<void> preRender() async{}
+
   Widget render(BuildContext context){
+    throw UnimplementedError();
+  }
+
+  Future<void> startMedia() async{}
+
+  Future<void> stopMedia() async{}
+
+  /// Compare a given service point to another, returning a positive number if this
+  /// should be given precedence in display. Each service should implement this
+  /// in a custom way, optionally relying on options
+  int compareTo(other){
     throw UnimplementedError();
   }
 
@@ -63,16 +81,11 @@ class ServiceInterface{
   Map optionValues = {};
   bool offersOptions = false;
 
-  Map shapeData(){
-    /**
-     * The function that shapes data from the service into a usable timeseries
-     */
-    throw UnimplementedError();
-  }
 
   Widget options(){
     throw UnimplementedError();
   }
+
 
   Future _loadCredentials() async{
     await rootBundle.loadStructuredData("assets/credentials.json",
@@ -97,35 +110,33 @@ class ServiceInterface{
     throw UnimplementedError();
   }
 
+  /// A method that should be overridden if the service has any work that must
+  /// be done before cache is called. Example: The Google Photos API requires
+  /// that certain properties must be refreshed every 60 minutes, so refresh
+  /// these before taking the service data out of cache
+  Future<void> onStart() async{}
+
+  /// A method that should return an event associated with a specific time, or
+  /// null. There is no specification of what type the returned event is,
+  /// but it should contain a serialize() method that returns JSON serializable
+  /// data
   getPoint(DateTime time){
-    /**
-     * A method that should return an event associated with a specific time,
-     * or null. There is no specification of what type the returned event is,
-     * but it should contain a serialize() method that returns JSON serializable
-     * data
-     */
     throw UnimplementedError();
   }
 
+  /// A method that should set the internal event within a service to a value,
+  /// where data is JSON serializable
   setPoint(DateTime time, data){
-    /**
-     * A method that should set the internal event within a service to a value,
-     * where data is JSON serializable
-     */
     throw UnimplementedError();
   }
 
+  /// A method to check if a given point matches the criterion for being displayed in a story
   bool pointIsValid(point){
-    /**
-     * A method to check if a given point matches the criterion for the fucntion
-     */
     return true;
   }
 
+  /// Return the years that this service has data for
   List<int> get years{
-    /**
-     * Return the years that this service has data for
-     */
     // Sort the time series
     List<DateTime> times = this.timeSeries;
     List<int> currYears = [];
@@ -137,11 +148,9 @@ class ServiceInterface{
     return currYears;
   }
 
+  /// Get all the points that fall between start and end. End must be after
+  /// start.
   List<ServicePoint> pointsInRange(DateTime start, DateTime end){
-    /**
-     * Get all the points that fall between start and end. End must be after
-     * start
-     */
     assert(end.isAfter(start));
     List<DateTime> times = this.timeSeries;
     List<ServicePoint> p = [];
@@ -153,12 +162,10 @@ class ServiceInterface{
     return p;
   }
 
+  /// A helper function to call pointsInRange for a certain year.
+  /// Start from one microsecond from the begging of the year, end right
+  /// after the year ends.
   List<ServicePoint> pointsInYear(int year){
-    /**
-     * A helper function to call pointsInRange for a certain year.
-     * Start from one microsecond from the beginning of the year, end right
-     * after the year ends
-     */
     DateTime yearStart = DateTime(year).subtract(Duration(microseconds: 1));
     DateTime yearEnd = DateTime(year+1);
     return pointsInRange(yearStart, yearEnd);
@@ -184,10 +191,8 @@ class ServiceInterface{
     this.doAuth();
   }
 
+  /// Download the data. Cache should likely be called when this is done
   void startDataDownload() async{
-    /**
-     * Download the data. Cache should likely be called when this is done
-     */
     // Set downloading = true to prevent multiple downloads
     if (!this.downloading && !this.loaded){
       print("Starting ${this.name} download");
@@ -220,10 +225,9 @@ class ServiceInterface{
     throw UnimplementedError();
   }
 
+  /// Write data to a cache.
+  /// Data must be JSON serializable
   void _writeCache(data){
-    /**
-     * data must be JSON serializable
-     */
     String jsonData = jsonEncode(data);
     this._prefs.setString(this._cacheName, jsonData);
   }
@@ -255,18 +259,20 @@ class ServiceInterface{
   }
 
 
-  void _initializeCache() async{
+
+  void initialize() async{
     this._prefs = await SharedPreferences.getInstance();
     // Check to see if the data is already cached
+    await this.onStart();
     if (this._prefs.containsKey(this._cacheName)){
       this._loadCache();
       this.loaded = true;
     }
+    this.doAuth();
   }
 
   ServiceInterface(){
     this.loaded = false;
     loadStatus = new StreamController.broadcast();
-    this._initializeCache();
   }
 }
