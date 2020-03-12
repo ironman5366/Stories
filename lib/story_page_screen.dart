@@ -56,9 +56,23 @@ class StoryPageScreen extends StatelessWidget{
         builder: (BuildContext context, AsyncSnapshot snapshot){
           if (snapshot.connectionState == ConnectionState.done){
             Page data = snapshot.data;
-            data.startPageMedia();
-            this.stopMedia = data.stopPageMedia;
-            return data.render(context);
+            if (data == null){
+              return Column(
+                children: [
+                  Card(
+                    child: ListTile(
+                      title: Text("Story finished", style:
+                        TextStyle(fontWeight: FontWeight.bold))
+                    )
+                  )
+                ]
+              );
+            }
+            else{
+              data.startPageMedia();
+              this.stopMedia = data.stopPageMedia;
+              return data.render(context);
+            }
           }
           else{
             return SpinKitChasingDots(color: theme.accentColor);

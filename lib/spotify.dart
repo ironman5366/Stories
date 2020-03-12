@@ -18,12 +18,12 @@ const Color spotifyGreen = Color(0XFF1DB954);
 class SpotifyTrack extends ServicePoint{
   int minDuration = 5;
   int maxDuration = 30;
+  DateTime created;
 
   MediaType mediaType = MediaType.audio;
 
   Color color = spotifyGreen;
 
-  DateTime added;
   String previewUrl;
   String externalUrl;
   String album;
@@ -33,7 +33,7 @@ class SpotifyTrack extends ServicePoint{
   int popularity;
   FlutterSound player = FlutterSound();
 
-  SpotifyTrack(this.added, this.previewUrl, this.externalUrl,
+  SpotifyTrack(this.created, this.previewUrl, this.externalUrl,
                 this.album, this.artist, this.name,
                 this.albumCoverUrl, this.popularity);
 
@@ -67,7 +67,7 @@ class SpotifyTrack extends ServicePoint{
      * Export to a json serializable map
      */
     Map trackData ={
-      "added": this.added.millisecondsSinceEpoch,
+      "added": this.created.millisecondsSinceEpoch,
       "previewUrl": this.previewUrl,
       "externalUrl": this.externalUrl,
       "album": this.album,

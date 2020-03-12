@@ -53,9 +53,27 @@ class PhotoRecord extends ServicePoint{
     }
   }
 
+  bool get isLandscape{
+    return int.parse(this.metadata["width"]) >=
+        int.parse(this.metadata["height"]);
+  }
+
   int compareTo(p){
     PhotoRecord photo = p;
-    // For now just compare the datetimes on these photos
+    bool isLandscape = this.isLandscape;
+    bool photoIsLandscape = photo.isLandscape;
+    // Prefer landscape photos,
+    if (isLandscape || photoIsLandscape){
+      if (isLandscape){
+        if (!photoIsLandscape){
+          return 1;
+        }
+      }
+      else{
+        return -1;
+      }
+    }
+    // If neither or both is landscape, compare datetimes
     return this.created.compareTo(photo.created);
   }
 
@@ -201,16 +219,24 @@ class GooglePhotos extends ServiceInterface{
     /**
      * Parse a list of google photos API responses into an internal usable track structure
      */
+    List<String> processedIds = [];
     Map<DateTime, PhotoRecord> photoAccumulator = {};
     for (Map photoData in responseData){
       Map metadata = photoData["mediaMetadata"];
       String rawCreated = metadata["creationTime"];
+      if (!metadata.containsKey("photo") || metadata["photo"].keys.length == 0){
+        continue;
+      }
       // Parse the creation time into a datetime
       DateTime created = DateTime.parse(rawCreated);
       String filename = photoData["filename"];
       String mimeType = photoData["mimeType"];
       String productUrl = photoData["productUrl"];
       String id = photoData["id"];
+      // Don't add the same photo twice
+      if (processedIds.contains(id)){
+        continue;
+      }
       // Create the photo object, and associate it with it's creation time
       photoAccumulator[created] = PhotoRecord(created: created,
                                               metadata: metadata,
@@ -235,27 +261,58 @@ class GooglePhotos extends ServiceInterface{
     );
   }
 
+  Future<List> _doPhotosDownload(String initialEndpoint, Map next, {int initNum: 0}) async{
+    List dataList = [];
+    this.loadStatus.add("$initNum photos processed");
+    while (next != null){
+      // Request the next page of items
+      Response rep = await post(initialEndpoint, headers: this._headers,
+          body: jsonEncode(next));
+      if (rep.statusCode == 200){
+        Map responseData = jsonDecode(rep.body);
+        if (responseData.keys.contains("nextPageToken") &&
+            responseData["nextPageToken"] != null){
+          next["pageToken"] = responseData["nextPageToken"];
+        }
+        else{
+          next = null;
+        }
+        dataList += responseData["mediaItems"];
+        this.loadStatus.add("${dataList.length+initNum} photos processed");
+      }
+      else{
+        print(rep.body);
+        this.loadStatus.add("Error");
+        next = null;
+      }
+    }
+    return dataList;
+  }
+
   Future<void> doDataDownload() async{
     // https://photoslibrary.googleapis.com/v1/mediaItems:search
     Map headers = this._headers;
     String initialEndpoint = "https://photoslibrary.googleapis.com/v1/mediaItems:search";
     // Try not to include any photos that could have sensitive information,
     // like documents, or any pictures that would likely be
-    // less nostalgic, such as food
+    // less nostalgic
     Map reqData = {
       "filters": {
         "contentFilter": {
+          "includedContentCategories": [
+            "PEOPLE",
+            "WEDDINGS",
+            "BIRTHDAYS",
+            "TRAVEL",
+            "PERFORMANCES",
+            "CITYSCAPES",
+            "LANDMARKS",
+          ],
           "excludedContentCategories": [
+            "HOUSES",
             "DOCUMENTS",
             "RECEIPTS",
-            "FOOD",
-            "WHITEBOARDS",
-            "SCREENSHOTS",
-            "UTILITY",
-            "ARTS",
-            "CRAFTS",
-            "FASHION",
-            "HOUSES",
+            "SELFIES"
           ]
         },
         "mediaTypeFilter": {
@@ -266,35 +323,29 @@ class GooglePhotos extends ServiceInterface{
       },
       "pageSize": 100
     };
-    Map next = reqData;
     List dataList = [];
-    int reqNum = 0;
-    this.loadStatus.add("0 photos processed");
-    while (next != null){
-      // Request the next page of items
-      Response rep = await post(initialEndpoint, headers: headers,
-                                body: jsonEncode(next));
-      reqNum++;
-      if (rep.statusCode == 200){
-        Map responseData = jsonDecode(rep.body);
-        if (responseData.keys.contains("nextPageToken") &&
-            responseData["nextPageToken"] != null){
-           next["pageToken"] = responseData["nextPageToken"];
-        }
-        else{
-          next = null;
-        }
-        dataList += responseData["mediaItems"];
-        this.loadStatus.add("${dataList.length} photos processed");
-      }
-      else{
-        print(rep.body);
-        this.loadStatus.add("Error");
-        next = null;
-      }
-    }
+    dataList.addAll(await _doPhotosDownload(initialEndpoint, reqData));
+    Map featureData = {
+        "filters": {
+          "featureFilter": {
+            "includedFeatures": [
+              "FAVORITES"
+            ]
+          },
+          "mediaTypeFilter": {
+            "mediaTypes": [
+              "PHOTO"
+            ]
+          }
+      },
+      "pageSize": 100
+    };
+    this.loadStatus.add("Processing favorites...");
+    dataList.addAll(await _doPhotosDownload(initialEndpoint, featureData,
+        initNum: dataList.length));
+    // After processing normal pictures, process favorites
     Map<DateTime, PhotoRecord> photos = _parseRecords(dataList, headers);
-    print("Parsed ${photos.keys.length} photos in $reqNum requests");
+    print("Parsed ${photos.keys.length} photos");
     this.loadStatus.add("Done");
     this._photos = photos;
   }

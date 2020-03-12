@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart' show PlatformException;
+import 'package:intl/intl.dart';
 import 'package:stories/service_utils.dart';
 import 'dart:async';
 
@@ -41,7 +42,13 @@ class Page{
       );
       Widget cardContent = point.render(context);
       // The footer of the card, dependent on the media type
-      Widget cardFoot = Row();
+      Widget cardFoot = Row(
+        children: [
+          Padding(padding: EdgeInsets.all(10), child:
+            Text(DateFormat.yMMMMd("en_us").format(point.created),
+                 style: TextStyle(color: Colors.grey)))
+        ]
+      );
       List appendTo;
       // If you implement a service with a new media type, this switch should be updated
       switch (point.mediaType){
@@ -120,6 +127,11 @@ class Story{
     Map<ServiceInterface, ServicePoint> chosenPoints = {};
     for (ServiceInterface service in points.keys){
       List<ServicePoint> pOps = points[service];
+      // Short circuit if there's only 1 point
+      if (pOps.length == 1){
+        chosenPoints[service] = pOps[0];
+        continue;
+      }
       // Sort the points by their date
       pOps.sort((ServicePoint o, ServicePoint p) =>
           o.created.compareTo(p.created));
@@ -140,6 +152,7 @@ class Story{
           (element.created.isBefore(chunkEnd) ||
               element.created.isAtSameMomentAs(chunkEnd)));
         List<ServicePoint> currChunk = pOps.sublist(idx, chunkIdx);
+        idx = chunkIdx;
         if (currChunk.length > peakLen){
           peakLen = currChunk.length;
           peak = currChunk;
@@ -147,13 +160,12 @@ class Story{
         // Update what datetime this current chunk is
         chunkEnd = chunkEnd.add(chunkDur);
       }
-      print(peakLen);
       // Sort the points in the peak by their compareTo functions
       peak.sort((ServicePoint s, ServicePoint o) => s.compareTo(o));
-      print(peak.length);
       // Choose the first sorted point in the pak
-      chosenPoints[service] = peak.first;
+      chosenPoints[service] = peak.last;
     }
+    print(chosenPoints);
     return chosenPoints;
   }
 
@@ -186,7 +198,12 @@ class Story{
         }
         if (!serviceExcluded){
           // If they do, pick which points to display
-          yield new Page(_isolatePoints(found));
+          Map<ServiceInterface, ServicePoint> pagePoints = _isolatePoints(found);
+          // Do prerender operations on the chosen points
+          for (ServicePoint p in pagePoints.values){
+            await p.preRender();
+          }
+          yield new Page(pagePoints);
         }
       }
     }
