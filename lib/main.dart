@@ -46,6 +46,8 @@ class _HomeState extends State<Home> {
   StreamSubscription _sub;
   List<ServiceInterface> selected = [];
   Map<String, String> loadStatus = {};
+  Spotify spotify = new Spotify();
+  GooglePhotos googlePhotos = new GooglePhotos();
 
   Future<Null> initUniLinks(Map serviceCallbacks) async {
     // ... check initialLink
@@ -64,7 +66,9 @@ class _HomeState extends State<Home> {
           if (successful){
             // TODO: also change the widget state here
             // Start downloading the data for this widget
-            serviceCallbacks[key].startDataDownload();
+            if (!serviceCallbacks[key].downloading){
+              serviceCallbacks[key].startDataDownload();
+            }
           }
           else{
             print("Service error");
@@ -198,8 +202,6 @@ class _HomeState extends State<Home> {
 
   @override
   Widget build(BuildContext context) {
-    Spotify spotify = Spotify();
-    GooglePhotos googlePhotos = GooglePhotos();
     Map authCallbacks = {
       "stories-oauth://spotify-callback": spotify,
       "stories-oauth://googlephotos-callback": googlePhotos

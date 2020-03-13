@@ -55,11 +55,14 @@ class SpotifyTrack extends ServicePoint{
   }
 
   Future<void> startMedia() async{
-    this.player.startPlayer(this.previewUrl);
+    if (this.player.audioState == t_AUDIO_STATE.IS_PLAYING){
+      await this.player.stopPlayer();
+    }
+    await this.player.startPlayer(this.previewUrl);
   }
 
   Future<void> stopMedia() async{
-    this.player.stopPlayer();
+    await this.player.stopPlayer();
   }
 
   Map serialize(){
@@ -120,7 +123,9 @@ class Spotify extends ServiceInterface {
       launchURL(endpoint.toString());
     }
     else{
-      this.startDataDownload();
+      if (!this.downloading){
+        this.startDataDownload();
+      }
       DateFormat cacheFormat = DateFormat.yMd();
       this.loadStatus.add("Last refreshed on ${cacheFormat.format(this.loadedAt)}");
     }
@@ -177,11 +182,6 @@ class Spotify extends ServiceInterface {
   }
 
   Future<void> doDataDownload() async{
-    if (this.downloading){
-      print("Not duplicating download");
-      return;
-    }
-    this.downloading = true;
     // Do this as a plain URL instead of the slightly easier URI
     // so the spotify next objects can be treated the same
     String next = "https://api.spotify.com/v1/me/tracks/?offset=0&limit=50";

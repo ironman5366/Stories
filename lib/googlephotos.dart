@@ -44,12 +44,26 @@ class PhotoRecord extends ServicePoint{
   }
 
   String get viewURL{
+    // Scale the image
+    int width = int.parse(this.metadata["width"]);
+    int height = int.parse(this.metadata["height"]);
+    int optimalHeight = 600;
+    int newHeight;
+    int newWidth;
+    if (height <= optimalHeight){
+      newHeight = height;
+      newWidth = width;
+    }
+    else{
+      newHeight = optimalHeight;
+      newWidth = (optimalHeight * (width / height)).toInt();
+    }
     if (this.mimeType.contains("video")){
       return "${this.baseUrl}=dv";
     }
     else{
       // Append width and height parameters to the image bytes
-      return "${this.baseUrl}=w${this.metadata["width"]}-h${this.metadata["height"]}";
+      return "${this.baseUrl}=w$newWidth-h$newHeight";
     }
   }
 
@@ -312,7 +326,8 @@ class GooglePhotos extends ServiceInterface{
             "HOUSES",
             "DOCUMENTS",
             "RECEIPTS",
-            "SELFIES"
+            "SELFIES",
+            "FOOD"
           ]
         },
         "mediaTypeFilter": {
@@ -348,6 +363,7 @@ class GooglePhotos extends ServiceInterface{
     print("Parsed ${photos.keys.length} photos");
     this.loadStatus.add("Done");
     this._photos = photos;
+    this.downloading = false;
   }
 
   /// Log in to google, set headers, and optionally call callback

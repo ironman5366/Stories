@@ -17,7 +17,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class StoryPageScreen extends StatelessWidget{
-  final StreamQueue<Page> _page;
+  final List<Page> _page;
   Function stopMedia;
 
   StoryPageScreen(this._page);
@@ -29,9 +29,10 @@ class StoryPageScreen extends StatelessWidget{
     else{
       await stopMedia();
     }
-    bool hasNext = await this._page.hasNext;
-    if (hasNext) {
-      this._page.next;
+    if (this._page.length == 0) {
+      print("Show end here");
+    }
+    else{
       Navigator.push(
         context,
         new MaterialPageRoute(
@@ -39,46 +40,18 @@ class StoryPageScreen extends StatelessWidget{
         )
       );
     }
-    else{
-      print("Show story end here");
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    Page currPage = this._page.removeAt(0);
+    currPage.startPageMedia();
+    this.stopMedia = currPage.stopPageMedia;
     return Scaffold(
       appBar: AppBar(
         title: Text("Stories")
       ),
-      body: FutureBuilder(
-        future: this._page.next,
-        initialData: SpinKitChasingDots(color: theme.accentColor),
-        builder: (BuildContext context, AsyncSnapshot snapshot){
-          if (snapshot.connectionState == ConnectionState.done){
-            Page data = snapshot.data;
-            if (data == null){
-              return Column(
-                children: [
-                  Card(
-                    child: ListTile(
-                      title: Text("Story finished", style:
-                        TextStyle(fontWeight: FontWeight.bold))
-                    )
-                  )
-                ]
-              );
-            }
-            else{
-              data.startPageMedia();
-              this.stopMedia = data.stopPageMedia;
-              return data.render(context);
-            }
-          }
-          else{
-            return SpinKitChasingDots(color: theme.accentColor);
-          }
-        }
-      ),
+      body: currPage.render(context),
       floatingActionButton: FloatingActionButton(
         child: Icon(Icons.arrow_forward),
         onPressed: (){

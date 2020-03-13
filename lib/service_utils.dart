@@ -76,7 +76,7 @@ class ServiceInterface{
   Map _keys;
   DateTime loadedAt;
   bool loaded;
-  bool downloading = false;
+  bool downloading;
   StreamController<String> loadStatus;
   Map optionValues = {};
   bool offersOptions = false;
@@ -179,7 +179,7 @@ class ServiceInterface{
       cacheData["data"][time.millisecondsSinceEpoch.toString()] = getPoint(time).serialize();
     }
     print("Caching ${cacheData['data'].length} datapoints under key ${this._cacheName}");
-    _writeCache(cacheData);
+    await _writeCache(cacheData);
   }
 
   Future<void> doDataDownload() async{
@@ -197,9 +197,10 @@ class ServiceInterface{
     if (!this.downloading && !this.loaded){
       print("Starting ${this.name} download");
       DateTime startTime = DateTime.now();
-      await this.doDataDownload();
+      this.downloading = true;
+      Future download = this.doDataDownload();
+      await download;
       DateTime endTime = DateTime.now();
-      this.downloading = false;
       // Use inMilliseconds instead of inSeconds because we're interested in fractional seconds
       double secondsTaken = (endTime.difference(startTime).inMilliseconds / 1000);
       print("Finished ${this.name} download, took $secondsTaken seconds");
@@ -227,8 +228,11 @@ class ServiceInterface{
 
   /// Write data to a cache.
   /// Data must be JSON serializable
-  void _writeCache(data){
+  Future<void> _writeCache(data) async{
     String jsonData = jsonEncode(data);
+    if (this._prefs == null){
+      this._prefs = await SharedPreferences.getInstance();
+    }
     this._prefs.setString(this._cacheName, jsonData);
   }
 
@@ -273,6 +277,7 @@ class ServiceInterface{
 
   ServiceInterface(){
     this.loaded = false;
+    this.downloading = false;
     loadStatus = new StreamController.broadcast();
   }
 }

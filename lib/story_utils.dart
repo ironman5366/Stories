@@ -165,14 +165,15 @@ class Story{
       // Choose the first sorted point in the pak
       chosenPoints[service] = peak.last;
     }
-    print(chosenPoints);
     return chosenPoints;
   }
 
-  Stream<Page> pages() async*{
+  Future<List<Page>> pages() async{
+    List<Page> builtPages = [];
     for (int year in this.years){
       // Iterate through the months in the year
       for (int m=1; m<=12; m++){
+        print("$year, $m");
         // Determine when to start and end for the month range
         DateTime monthStart = DateTime(year, m).subtract(Duration(microseconds: 1));
         DateTime monthEnd;
@@ -199,18 +200,21 @@ class Story{
         if (!serviceExcluded){
           // If they do, pick which points to display
           Map<ServiceInterface, ServicePoint> pagePoints = _isolatePoints(found);
+          print(pagePoints.length);
           // Do prerender operations on the chosen points
           for (ServicePoint p in pagePoints.values){
             await p.preRender();
           }
-          yield new Page(pagePoints);
+          Page builtPage = new Page(pagePoints);
+          builtPages.add(builtPage);
         }
       }
     }
+    return builtPages;
   }
 
 
-  List<Widget> yearSelector() {
+  List<Widget> yearSelector(Function callback) {
     List<int> serviceYears;
     for (ServiceInterface s in this.services) {
       if (serviceYears == null) {
@@ -227,24 +231,29 @@ class Story{
       }
     }
     serviceYears.sort();
-    this.years = serviceYears;
+    if (this.years == null){
+      this.years = serviceYears;
+    }
     List<Widget> yearTiles = [];
     for (int y in serviceYears){
+      bool v = (this.years.contains(y));
       yearTiles.add(
         Card(
           child:
             CheckboxListTile(
                 checkColor: theme.splashColor,
                 title: Text(y.toString(), style: TextStyle(fontWeight: FontWeight.bold)),
-                value: true,
+                value: v,
                 onChanged: (bool b){
                   if (b){
                     if (!this.years.contains(y)){
                       this.years.add(y);
+                      callback();
                     }
                   }
                   else{
                     this.years.remove(y);
+                    callback();
                   }
                 },
             )
