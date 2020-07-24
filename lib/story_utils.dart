@@ -14,10 +14,10 @@ import 'package:stories/spotify.dart';
 import 'package:uni_links/uni_links.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-class Page{
+class StoryPage{
   final Map<ServiceInterface, ServicePoint> _points;
 
-  Page(this._points);
+  StoryPage(this._points);
 
   Widget render(BuildContext context){
     // Photo/Video widgets that should be at the top of the bundle
@@ -168,8 +168,8 @@ class Story{
     return chosenPoints;
   }
 
-  Future<List<Page>> pages() async{
-    List<Page> builtPages = [];
+  Future<List<StoryPage>> pages() async{
+    List<StoryPage> builtPages = [];
     for (int year in this.years){
       // Iterate through the months in the year
       for (int m=1; m<=12; m++){
@@ -205,7 +205,7 @@ class Story{
           for (ServicePoint p in pagePoints.values){
             await p.preRender();
           }
-          Page builtPage = new Page(pagePoints);
+          StoryPage builtPage = new StoryPage(pagePoints);
           builtPages.add(builtPage);
         }
       }

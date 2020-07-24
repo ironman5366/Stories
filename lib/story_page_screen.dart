@@ -17,7 +17,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 
 class StoryPageScreen extends StatelessWidget{
-  final List<Page> _page;
+  final List<StoryPage> _page;
   Function stopMedia;
 
   StoryPageScreen(this._page);
@@ -44,7 +44,7 @@ class StoryPageScreen extends StatelessWidget{
 
   @override
   Widget build(BuildContext context) {
-    Page currPage = this._page.removeAt(0);
+    StoryPage currPage = this._page.removeAt(0);
     currPage.startPageMedia();
     this.stopMedia = currPage.stopPageMedia;
     return Scaffold(

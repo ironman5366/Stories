@@ -9,9 +9,9 @@ import 'package:stories/service_utils.dart';
 
 // External imports
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_sound/flutter_sound.dart';
 
 const Color spotifyGreen = Color(0XFF1DB954);
 
@@ -31,7 +31,7 @@ class SpotifyTrack extends ServicePoint{
   String name;
   String albumCoverUrl;
   int popularity;
-  FlutterSound player = FlutterSound();
+  AudioPlayer player = AudioPlayer();
 
   SpotifyTrack(this.created, this.previewUrl, this.externalUrl,
                 this.album, this.artist, this.name,
@@ -55,14 +55,12 @@ class SpotifyTrack extends ServicePoint{
   }
 
   Future<void> startMedia() async{
-    if (this.player.audioState == t_AUDIO_STATE.IS_PLAYING){
-      await this.player.stopPlayer();
-    }
-    await this.player.startPlayer(this.previewUrl);
+    await this.player.stop();
+    await this.player.play(this.previewUrl);
   }
 
   Future<void> stopMedia() async{
-    await this.player.stopPlayer();
+    await this.player.stop();
   }
 
   Map serialize(){

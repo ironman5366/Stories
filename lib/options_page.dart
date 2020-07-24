@@ -17,7 +17,7 @@ import 'package:uni_links/uni_links.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class LoadingStep extends StatelessWidget{
-  final Future<List<Page>> pageFuture;
+  final Future<List<StoryPage>> pageFuture;
 
   LoadingStep(this.pageFuture);
 
@@ -42,7 +42,7 @@ class LoadingStep extends StatelessWidget{
           future: this.pageFuture,
           builder: (BuildContext context, AsyncSnapshot snapshot){
             if (snapshot.connectionState == ConnectionState.done){
-              List<Page> data = snapshot.data;
+              List<StoryPage> data = snapshot.data;
               return CupertinoButton(
                 child: Text("Start story"),
                 color: theme.accentColor,
@@ -80,7 +80,7 @@ class _OptionsState extends State<OptionsStep>{
   List<Widget> yearOps;
 
   void startStory(BuildContext context) async{
-    Future<List<Page>> pages = this.widget.story.pages();
+    Future<List<StoryPage>> pages = this.widget.story.pages();
     Navigator.push(context,
         new MaterialPageRoute(
             builder: (BuildContext context) => new LoadingStep(pages)
