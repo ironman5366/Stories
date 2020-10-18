@@ -172,42 +172,36 @@ class Story{
     List<StoryPage> builtPages = [];
     for (int year in this.years){
       // Iterate through the months in the year
-      for (int m=1; m<=12; m++){
-        print("$year, $m");
-        // Determine when to start and end for the month range
-        DateTime monthStart = DateTime(year, m).subtract(Duration(microseconds: 1));
-        DateTime monthEnd;
-        if (m == 12){
-          monthEnd = DateTime(year+1, 1);
-        }
-        else{
-          monthEnd = DateTime(year, m+1);
-        }
-        // Determine if all services have points in this month
-        Map<ServiceInterface, List<ServicePoint>> found = {};
+      DateTime yearI = DateTime(year);
+      DateTime yearEnd = DateTime(year+1);
+      while (yearI.compareTo(yearEnd) < 0) {
+        DateTime nextWeek = yearI.add(Duration(days: 7));
         bool serviceExcluded = false;
-        for (ServiceInterface service in this.services){
-          List<ServicePoint> monthPoints = service.pointsInRange(monthStart,
-              monthEnd);
-          if (monthPoints.length == 0){
+        Map<ServiceInterface, List<ServicePoint>> found = {};
+        for (ServiceInterface service in this.services) {
+          List<ServicePoint> dayPoints = service.pointsInRange(yearI, nextWeek);
+          if (dayPoints.length == 0) {
             serviceExcluded = true;
             break;
           }
-          else{
-            found[service] = monthPoints;
+          else {
+            found[service] = dayPoints;
           }
         }
-        if (!serviceExcluded){
-          // If they do, pick which points to display
-          Map<ServiceInterface, ServicePoint> pagePoints = _isolatePoints(found);
-          print(pagePoints.length);
-          // Do prerender operations on the chosen points
-          for (ServicePoint p in pagePoints.values){
-            await p.preRender();
+
+          if (!serviceExcluded) {
+            // If they do, pick which points to display
+            Map<ServiceInterface, ServicePoint> pagePoints = _isolatePoints(
+                found);
+            print(pagePoints.length);
+            // Do prerender operations on the chosen points
+            for (ServicePoint p in pagePoints.values) {
+              await p.preRender();
+            }
+            StoryPage builtPage = new StoryPage(pagePoints);
+            builtPages.add(builtPage);
           }
-          StoryPage builtPage = new StoryPage(pagePoints);
-          builtPages.add(builtPage);
-        }
+          yearI = nextWeek;
       }
     }
     return builtPages;
