@@ -175,7 +175,8 @@ class Story{
       DateTime yearI = DateTime(year);
       DateTime yearEnd = DateTime(year+1);
       while (yearI.compareTo(yearEnd) < 0) {
-        DateTime nextWeek = yearI.add(Duration(days: 7));
+        DateTime nextWeek = yearI.add(Duration(days: 10));
+        print(yearI);
         bool serviceExcluded = false;
         Map<ServiceInterface, List<ServicePoint>> found = {};
         for (ServiceInterface service in this.services) {
@@ -193,7 +194,6 @@ class Story{
             // If they do, pick which points to display
             Map<ServiceInterface, ServicePoint> pagePoints = _isolatePoints(
                 found);
-            print(pagePoints.length);
             // Do prerender operations on the chosen points
             for (ServicePoint p in pagePoints.values) {
               await p.preRender();
