@@ -175,18 +175,24 @@ class Story{
       DateTime yearI = DateTime(year);
       DateTime yearEnd = DateTime(year+1);
       while (yearI.compareTo(yearEnd) < 0) {
-        DateTime nextWeek = yearI.add(Duration(days: 10));
-        print(yearI);
-        bool serviceExcluded = false;
+        bool serviceExcluded = true;
         Map<ServiceInterface, List<ServicePoint>> found = {};
-        for (ServiceInterface service in this.services) {
-          List<ServicePoint> dayPoints = service.pointsInRange(yearI, nextWeek);
-          if (dayPoints.length == 0) {
-            serviceExcluded = true;
-            break;
+
+        DateTime nextWeek;
+        for (int i=1; i<30; i++){
+          print(i);
+          nextWeek = yearI.add(Duration(days: i));
+          Map<ServiceInterface, List<ServicePoint>> durFound = {};
+          for (ServiceInterface service in this.services) {
+            List<ServicePoint> dayPoints = service.pointsInRange(yearI, nextWeek);
+            if (dayPoints.length != 0) {
+              durFound[service] = dayPoints;
+            }
           }
-          else {
-            found[service] = dayPoints;
+          if (durFound.keys.length >= 2) {
+            serviceExcluded = false;
+            found = durFound;
+            break;
           }
         }
 
@@ -201,6 +207,7 @@ class Story{
             StoryPage builtPage = new StoryPage(pagePoints);
             builtPages.add(builtPage);
           }
+          print(nextWeek);
           yearI = nextWeek;
       }
     }
